@@ -1,6 +1,9 @@
+/* eslint-disable vtex/prefer-early-return */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable no-restricted-globals */
 import { canUseDOM } from 'vtex.render-runtime'
+
+import type { PixelMessage } from './typings/events'
 
 let fakeBtn: HTMLButtonElement
 
@@ -67,8 +70,6 @@ function bootstrap() {
     useAnalytics = false,
     accountKey = null,
   } = window.__zendeskPixel
-
-  const IS_MOBILE = window.__RUNTIME__.hints.mobile
 
   const chatTheme = widgetSettings.theme?.theme || widgetSettings.color?.theme
   const btnLabel = widgetSettings.theme?.launcherLabel || 'Chat'
@@ -169,61 +170,59 @@ function bootstrap() {
     document.head.appendChild(script)
   }
 
-  function addFakeButton() {
-    fakeBtn = document.createElement('button')
-
-    fakeBtn.id = 'zendesk-fake-btn'
-    fakeBtn.innerHTML = `<svg id="zendesk-fake-icon" x="0" y="0" viewBox="0 0 15 16" xml:space="preserve" aria-hidden="true"><path d="M1.3,16c-0.7,0-1.1-0.3-1.2-0.8c-0.3-0.8,0.5-1.3,0.8-1.5c0.6-0.4,0.9-0.7,1-1c0-0.2-0.1-0.4-0.3-0.7c0,0,0-0.1-0.1-0.1 C0.5,10.6,0,9,0,7.4C0,3.3,3.4,0,7.5,0C11.6,0,15,3.3,15,7.4s-3.4,7.4-7.5,7.4c-0.5,0-1-0.1-1.5-0.2C3.4,15.9,1.5,16,1.5,16 C1.4,16,1.4,16,1.3,16z M3.3,10.9c0.5,0.7,0.7,1.5,0.6,2.2c0,0.1-0.1,0.3-0.1,0.4c0.5-0.2,1-0.4,1.6-0.7c0.2-0.1,0.4-0.2,0.6-0.1 c0,0,0.1,0,0.1,0c0.4,0.1,0.9,0.2,1.4,0.2c3,0,5.5-2.4,5.5-5.4S10.5,2,7.5,2C4.5,2,2,4.4,2,7.4c0,1.2,0.4,2.4,1.2,3.3 C3.2,10.8,3.3,10.8,3.3,10.9z"></path></svg><span>${btnLabel}</span>`
-
-    fakeBtn.className =
-      'flex items-center justify-center b br-pill bg-base--inverted c-on-base--inverted pointer'
-
-    if (btnTextColor) fakeBtn.style.color = btnTextColor
-    if (btnBgColor) fakeBtn.style.backgroundColor = btnBgColor
-
-    fakeBtn.addEventListener('click', () => {
-      localStorage.setItem('zdChatOpen', 'true')
-      addZDSnippet()
-    })
-
-    document.head.insertAdjacentHTML(
-      'beforeend',
-      `<style>
-        #zendesk-fake-btn {
-          position: fixed;
-          ${btnPosition}: 0;
-          bottom: 0;
-          margin: 15px 20px;
-          ${IS_MOBILE ? 'padding: .9em;' : 'padding: .9em 1.5em;'}
-          opacity: 1;
-          border: 0px;
-          z-index: ${widgetZindex};
-          font-size: 15px;
-          -webkit-appearance: none;
-        }
-        #zendesk-fake-icon {
-          ${!IS_MOBILE ? 'padding-right: 0.57143em;' : ''}
-          fill: currentColor;
-          width: 1.42em;
-          height: 1.42em;
-        }
-        #zendesk-fake-btn span {
-          font-size: 1.1em;
-          ${IS_MOBILE ? `display: none;` : ''}
-        }
-      </style>`
-    )
-
-    document.body.appendChild(fakeBtn)
-  }
-
   if (shouldOpenChat()) {
     addZDSnippet()
   } else {
-    addFakeButton()
+    // replace fake button with the on click action only
+    localStorage.setItem('zdChatOpen', 'true')
+    addZDSnippet()
+  }
+}
+
+export function handleEvents(e: PixelMessage) {
+  if (e.data.eventName === 'vtex:pageView') {
+    const iframe1 = document.querySelector<HTMLElement>(
+      "iframe[title='Button to launch messaging window']"
+    )
+
+    const iframe2 = document.querySelector<HTMLElement>(
+      "iframe[title='Number of unread messages']"
+    )
+
+    const iframe3 = document.querySelector<HTMLElement>(
+      "iframe[title='Message from company']"
+    )
+
+    if (e.data?.pageTitle === 'Contact') {
+      bootstrap()
+
+      if (iframe1) {
+        iframe1.style.display = 'block'
+      }
+
+      if (iframe2) {
+        iframe2.style.display = 'block'
+      }
+
+      if (iframe3) {
+        iframe3.style.display = 'block'
+      }
+    } else {
+      if (iframe1) {
+        iframe1.style.display = 'none'
+      }
+
+      if (iframe2) {
+        iframe2.style.display = 'none'
+      }
+
+      if (iframe3) {
+        iframe3.style.display = 'none'
+      }
+    }
   }
 }
 
 if (canUseDOM && window.__zendeskPixel) {
-  bootstrap()
+  window.addEventListener('message', handleEvents)
 }
